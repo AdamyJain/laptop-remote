@@ -14,16 +14,22 @@ Both the phone and laptop must be on the **same Wi-Fi network**.
 
 ```bash
 cd laptop-remote
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements_client.txt
 ```
 
 ### OS-specific notes (read the one that applies to you)
 
 **macOS**
-- Go to *System Settings → Privacy & Security → Accessibility* and
-  *Privacy & Security → Screen Recording*, then add your terminal app
-  (Terminal/iTerm) or Python itself. Without this, pyautogui's clicks and
-  key presses are silently ignored.
+- Use **Python 3.12** (not 3.13/3.14 — some pinned deps lack wheels there):
+  `python3.12 -m venv .venv`. Install it with `brew install python@3.12` if needed.
+- Go to *System Settings → Privacy & Security → Accessibility*, then add your
+  terminal app (Terminal/iTerm) or Python itself. Without this, pyautogui's
+  clicks and key presses are silently ignored.
+- The server listens on **port 5050** on macOS, because the built-in
+  *AirPlay Receiver* (ControlCenter) permanently occupies port 5000. Override
+  with `RC_PORT=...` if 5050 is also taken.
 - Turn on **Mac modifiers** in the page's settings (gear icon) so Copy/Paste/
   Undo send ⌘ instead of Ctrl.
 
@@ -41,18 +47,19 @@ pip install -r requirements.txt
 ## 2. Run
 
 ```bash
-python server.py
+python laptop_client.py
 ```
 
-It prints something like:
+This starts a local server, drops a tray icon in the menu bar, and opens a
+**setup page** in your browser. The setup page shows a URL (and QR code) like:
 
 ```
-On your phone (same Wi-Fi), open:
-  http://192.168.1.42:5000/?token=letmein
+http://192.168.1.42:5050/remote?token=<random-token>
 ```
 
-Open that exact URL in your phone's browser. The status dot in the top-left
-turns teal/green when connected.
+A fresh token is generated each run. Open that exact URL in your phone's
+browser (same Wi-Fi). The status dot in the top-left turns teal/green when
+connected.
 
 ## 3. Using it
 
@@ -70,19 +77,14 @@ turns teal/green when connected.
 
 This only protects against casual access: anyone who can reach the server's
 port on your LAN and guesses the token could control your laptop. It's meant
-for trusted home/office Wi-Fi, not public networks. Change the default token:
-
-```bash
-RC_TOKEN=something-only-you-know python server.py
-```
-
-...and then open `http://<ip>:5000/?token=something-only-you-know` on your phone.
+for trusted home/office Wi-Fi, not public networks. A fresh random token is
+generated on every launch, so just restart the app to rotate it.
 
 ## Tuning
 
 - **Pointer sensitivity** — slider in settings (gear icon), persisted in the
   page's local storage.
-- **Port** — `RC_PORT=8080 python server.py` if 5000 is taken.
+- **Port** — `RC_PORT=8080 python laptop_client.py` if 5050 is taken.
 
 ## Extending it
 
