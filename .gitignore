@@ -1,8 +1,8 @@
 .venv/
 build/
-dist/
 __pycache__/
 *.pyc
 *.pyo
 *.spec.bak
 *.png
+.playwright-mcp/
