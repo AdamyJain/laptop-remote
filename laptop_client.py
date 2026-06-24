@@ -17,6 +17,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 
 import pyautogui
@@ -24,6 +25,10 @@ import pystray
 from PIL import Image, ImageDraw
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
+
+# macOS needs Quartz for reliable relative cursor movement (see handle_move).
+if sys.platform == "darwin":
+    import Quartz
 
 # ---------------------------------------------------------------------------
 # Config
@@ -36,6 +41,14 @@ PORT  = int(os.environ.get("RC_PORT", 5050))
 
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE    = 0
+
+# Cursor accumulator for macOS relative movement (see handle_move).
+_SCREEN_W, _SCREEN_H = (int(v) for v in pyautogui.size())
+_cursor = {"x": 0.0, "y": 0.0, "t": 0.0}
+# If two move events are more than this far apart, the gesture is considered
+# new — re-seed from the real cursor so we stay in sync if the user also
+# touched the physical trackpad in the meantime.
+_RESEED_GAP_S = 0.25
 
 # ---------------------------------------------------------------------------
 # Flask setup
@@ -118,7 +131,40 @@ def on_disconnect():
 
 @socketio.on("move")
 def handle_move(data):
-    pyautogui.moveRel(float(data.get("dx", 0)), float(data.get("dy", 0)), duration=0)
+    dx = float(data.get("dx", 0))
+    dy = float(data.get("dy", 0))
+    if sys.platform == "darwin":
+        _move_rel_mac(dx, dy)
+    else:
+        pyautogui.moveRel(dx, dy, duration=0)
+
+
+def _move_rel_mac(dx, dy):
+    """Relative cursor move on macOS.
+
+    pyautogui.moveRel reads the live cursor position before every step, but
+    macOS coalesces rapidly-posted mouse events so that read-back lags far
+    behind. During a fast swipe the cursor then crawls and never reaches the
+    screen edge — so the menu bar and Dock never auto-reveal. We instead keep
+    our own accumulator and post the absolute position directly via Quartz,
+    clamped to the screen so it lands exactly on the edge (y == 0 reveals the
+    menu bar, y == height-1 reveals the Dock). After an idle gap we re-seed
+    from the real cursor to stay in sync with the physical trackpad.
+    """
+    now = time.monotonic()
+    if now - _cursor["t"] > _RESEED_GAP_S:
+        loc = Quartz.CGEventGetLocation(Quartz.CGEventCreate(None))
+        _cursor["x"], _cursor["y"] = loc.x, loc.y
+    _cursor["t"] = now
+
+    x = min(max(_cursor["x"] + dx, 0), _SCREEN_W - 1)
+    y = min(max(_cursor["y"] + dy, 0), _SCREEN_H - 1)
+    _cursor["x"], _cursor["y"] = x, y
+
+    ev = Quartz.CGEventCreateMouseEvent(
+        None, Quartz.kCGEventMouseMoved, (x, y), Quartz.kCGMouseButtonLeft
+    )
+    Quartz.CGEventPost(Quartz.kCGHIDEventTap, ev)
 
 @socketio.on("click")
 def handle_click(data):
