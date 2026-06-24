@@ -176,9 +176,24 @@ def handle_doubleclick(_):
 
 @socketio.on("scroll")
 def handle_scroll(data):
-    amount = int(data.get("amount", 0))
-    if amount:
-        pyautogui.scroll(amount)
+    # "amount" is the legacy vertical-only field (scroll rail); two-finger
+    # trackpad scrolling sends x/y for horizontal + vertical.
+    y = int(data.get("y", data.get("amount", 0)))
+    x = int(data.get("x", 0))
+    if y:
+        pyautogui.scroll(y)
+    if x:
+        pyautogui.hscroll(x)
+
+@socketio.on("zoom")
+def handle_zoom(data):
+    # Pinch-to-zoom -> Cmd/Ctrl + "=" (in) or "-" (out). "=" is used instead
+    # of "+" so no Shift is needed; both work for zoom in browsers and apps.
+    direction = int(data.get("delta", 0))
+    if not direction:
+        return
+    mod = "command" if sys.platform == "darwin" else "ctrl"
+    pyautogui.hotkey(mod, "=" if direction > 0 else "-")
 
 @socketio.on("key")
 def handle_key(data):
