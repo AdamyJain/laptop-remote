@@ -30,7 +30,9 @@ from flask_socketio import SocketIO, emit
 # ---------------------------------------------------------------------------
 
 TOKEN = secrets.token_urlsafe(12)
-PORT  = int(os.environ.get("RC_PORT", 5000))
+# Default 5050, not 5000: on macOS the ControlCenter "AirPlay Receiver"
+# service permanently binds port 5000, which would make the server fail to start.
+PORT  = int(os.environ.get("RC_PORT", 5050))
 
 pyautogui.FAILSAFE = False
 pyautogui.PAUSE    = 0
