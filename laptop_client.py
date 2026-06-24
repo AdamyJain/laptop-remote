@@ -195,6 +195,43 @@ def handle_zoom(data):
     mod = "command" if sys.platform == "darwin" else "ctrl"
     pyautogui.hotkey(mod, "=" if direction > 0 else "-")
 
+
+# 3-/4-finger swipe -> OS-native space/desktop/window navigation.
+# macOS uses the same Mission Control shortcuts for 3 and 4 fingers; Windows
+# follows its Precision Touchpad defaults (3 = switch apps, 4 = switch desktops).
+_SWIPE_KEYS = {
+    "darwin": {
+        3: {"left": ("ctrl", "left"), "right": ("ctrl", "right"),
+            "up": ("ctrl", "up"),    "down": ("ctrl", "down")},
+        4: {"left": ("ctrl", "left"), "right": ("ctrl", "right"),
+            "up": ("ctrl", "up"),    "down": ("ctrl", "down")},
+    },
+    "win32": {
+        3: {"left": ("alt", "tab"),         "right": ("alt", "shift", "tab"),
+            "up": ("win", "tab"),           "down": ("win", "d")},
+        4: {"left": ("ctrl", "win", "left"), "right": ("ctrl", "win", "right"),
+            "up": ("win", "tab"),            "down": ("win", "d")},
+    },
+}
+# Reasonable GNOME-ish defaults for Linux; reused for 3 and 4 fingers.
+_SWIPE_KEYS_LINUX = {
+    "left": ("ctrl", "alt", "left"), "right": ("ctrl", "alt", "right"),
+    "up": ("super",),                "down": ("super", "d"),
+}
+
+
+@socketio.on("swipe")
+def handle_swipe(data):
+    direction = data.get("dir")
+    fingers = int(data.get("fingers", 3))
+    fingers = 4 if fingers >= 4 else 3
+    if sys.platform in _SWIPE_KEYS:
+        keys = _SWIPE_KEYS[sys.platform][fingers].get(direction)
+    else:
+        keys = _SWIPE_KEYS_LINUX.get(direction)
+    if keys:
+        pyautogui.hotkey(*keys)
+
 @socketio.on("key")
 def handle_key(data):
     key = data.get("key")
