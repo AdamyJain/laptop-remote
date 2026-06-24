@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>Laptop Remote</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root{
+    --bg: #14161a;
+    --panel: #1b1e24;
+    --panel-raised: #21252c;
+    --line: #2c313a;
+    --amber: #e8a33d;
+    --amber-dim: #6b5328;
+    --teal: #4fb8b0;
+    --text: #e7e6e2;
+    --text-dim: #8d92a0;
+    --danger: #d9665a;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{
+    margin:0; height:100%; background:var(--bg); color:var(--text);
+    font-family: var(--sans); overscroll-behavior: none; touch-action: none;
+    user-select: none;
+  }
+  #app{ display:flex; flex-direction:column; height:100vh; height:100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+  /* ---- top bar ---- */
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 10px 14px; border-bottom: 1px solid var(--line); flex-shrink:0;
+  }
+  .brand{ display:flex; align-items:center; gap:8px; }
+  .brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--danger); transition: background .2s; box-shadow: 0 0 6px currentColor; }
+  .brand .dot.on{ background:var(--teal); color:var(--teal); }
+  .brand .dot.off{ color:var(--danger); }
+  .brand span{ font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; color: var(--text-dim); text-transform: uppercase; }
+  .gear{ background:none; border:none; color:var(--text-dim); font-size:18px; padding:6px; }
+
+  /* ---- settings drawer ---- */
+  #settings{
+    background: var(--panel); border-bottom:1px solid var(--line);
+    padding: 12px 14px; display:none; gap:10px; flex-direction:column; flex-shrink:0;
+  }
+  #settings.open{ display:flex; }
+  #settings label{ font-family: var(--mono); font-size: 11px; color: var(--text-dim); letter-spacing: .08em; text-transform: uppercase; display:block; margin-bottom:4px;}
+  #settings input[type=text]{
+    width:100%; background: var(--panel-raised); border:1px solid var(--line); color:var(--text);
+    padding: 9px 10px; border-radius:6px; font-family: var(--mono); font-size:14px;
+  }
+  .row{ display:flex; align-items:center; justify-content:space-between; }
+  .switch-label{ font-family: var(--mono); font-size: 12px; color: var(--text); }
+
+  /* ---- touch surface (signature element) ---- */
+  #surface-wrap{ flex: 1 1 auto; display:flex; padding: 12px; gap:10px; min-height: 0; }
+  #touchpad{
+    flex: 1; position:relative; border-radius: 14px; overflow:hidden;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.045) 1px, transparent 1.6px) 0 0/16px 16px,
+      var(--panel);
+    border: 1px solid var(--line);
+  }
+  #touchpad::before{
+    content:"TOUCH SURFACE"; position:absolute; bottom:10px; left:14px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--text-dim); opacity:.55;
+  }
+  #touchpad::after{
+    content:""; position:absolute; top:14px; right:14px; width:7px; height:7px;
+    border-radius:50%; background: var(--amber-dim);
+  }
+  #scrollrail{
+    width: 46px; border-radius: 14px; background: var(--panel); border:1px solid var(--line);
+    position:relative; display:flex; align-items:center; justify-content:center;
+  }
+  #scrollrail::before{
+    content:""; position:absolute; left:50%; top:16px; bottom:16px; width:2px;
+    background: var(--line); transform: translateX(-50%);
+  }
+  #scrollrail span{
+    font-family: var(--mono); font-size: 9px; color: var(--text-dim); letter-spacing:.15em;
+    writing-mode: vertical-rl; opacity:.6;
+  }
+
+  /* ---- click buttons ---- */
+  #clickrow{ display:flex; gap:10px; padding: 0 12px 10px; flex-shrink:0; }
+  .btn{
+    flex:1; background: var(--panel-raised); border:1px solid var(--line); color: var(--text);
+    border-radius: 10px; padding: 13px 0; font-family: var(--mono); font-size:12px;
+    letter-spacing: .08em; text-transform: uppercase; text-align:center;
+  }
+  .btn:active{ background: var(--amber-dim); border-color: var(--amber); }
+  .btn.primary{ color: var(--amber); }
+
+  /* ---- bottom control deck ---- */
+  #deck{ background: var(--panel); border-top:1px solid var(--line); flex-shrink:0; }
+  .keyrow{ display:flex; gap:8px; padding: 9px 12px; overflow-x:auto; }
+  .keyrow::-webkit-scrollbar{ display:none; }
+  .keybtn{
+    flex: 0 0 auto; min-width: 52px; background: var(--panel-raised); border:1px solid var(--line);
+    color: var(--text); border-radius:8px; padding: 11px 12px; font-family: var(--mono);
+    font-size: 12px; letter-spacing:.04em; text-align:center;
+  }
+  .keybtn:active{ background: var(--amber-dim); border-color: var(--amber); }
+  .keybtn.wide{ min-width: 78px; }
+
+  #kbInput{
+    position:absolute; opacity:0; height:1px; width:1px; left:-100px; font-size:16px;
+  }
+
+  footer{ text-align:center; padding: 6px 0 10px; font-family: var(--mono); font-size:10px; color: var(--text-dim); letter-spacing:.1em; flex-shrink:0; }
+
+  /* ---- mode tabs ---- */
+  #modetabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .modetab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    position: relative;
+  }
+  .modetab::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0; right: 0;
+    height: 2px;
+    background: transparent;
+    transition: background .15s;
+  }
+  .modetab.active { color: var(--amber); }
+  .modetab.active::after { background: var(--amber); }
+
+  /* ---- media panel ---- */
+  #mediapanel {
+    display: none;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 14px 14px;
+    overflow-y: auto;
+    min-height: 0;
+  }
+  #mediapanel.active { display: flex; }
+  .media-row { display: flex; gap: 10px; }
+  .media-btn {
+    flex: 1;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 14px;
+    padding: 18px 10px 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: background .1s, border-color .1s;
+  }
+  .media-btn:active { background: rgba(229,9,20,.18); border-color: rgba(229,9,20,.55); }
+  .media-btn .mi { width: 26px; height: 26px; display: block; }
+  .media-btn.media-play { padding: 20px 10px 16px; }
+  .media-btn.media-play .mi { width: 38px; height: 24px; }
+  .media-btn.media-accent {
+    color: #E50914;
+    border-color: rgba(229,9,20,.35);
+    background: rgba(229,9,20,.06);
+  }
+  .media-btn.media-accent:active { background: rgba(229,9,20,.22); border-color: #E50914; }
+  .media-hint { font-size: 9px; opacity: .5; letter-spacing: .06em; }
+  .media-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ---- Netflix red theme in media mode ---- */
+  #app.media-mode #modetabs { border-bottom-color: rgba(229,9,20,.2); }
+  #app.media-mode .modetab.active { color: #E50914; }
+  #app.media-mode .modetab.active::after { background: #E50914; }
+  #app.media-mode header { border-bottom-color: rgba(229,9,20,.15); }
+  #app.media-mode #mediapanel {
+    background: linear-gradient(175deg, rgba(40,5,5,.6) 0%, transparent 50%);
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <div class="dot off" id="statusDot"></div>
+      <span id="statusText">DISCONNECTED</span>
+    </div>
+    <button class="gear" id="gearBtn" aria-label="Settings">&#9881;</button>
+  </header>
+
+  <div id="settings">
+    <div>
+      <label for="tokenInput">Server token</label>
+      <input type="text" id="tokenInput" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    </div>
+    <div class="row">
+      <span class="switch-label">Mac modifiers (&#8984; instead of Ctrl)</span>
+      <input type="checkbox" id="macMode" />
+    </div>
+    <div class="row">
+      <span class="switch-label">Pointer sensitivity</span>
+      <input type="range" id="sensitivity" min="0.5" max="3" step="0.1" style="width:120px" />
+    </div>
+    <button class="btn" id="reconnectBtn" style="width:100%">Reconnect</button>
+  </div>
+
+  <div id="modetabs">
+    <div class="modetab active" id="tabTouchpad">Touchpad</div>
+    <div class="modetab" id="tabMedia">Media</div>
+  </div>
+
+  <div id="surface-wrap">
+    <div id="touchpad"></div>
+    <div id="scrollrail"><span>SCROLL</span></div>
+  </div>
+
+  <div id="clickrow">
+    <div class="btn primary" id="leftClickBtn">Left</div>
+    <div class="btn" id="doubleClickBtn">Double</div>
+    <div class="btn" id="rightClickBtn">Right</div>
+  </div>
+
+  <div id="mediapanel">
+    <!-- Playback row -->
+    <div class="media-row">
+      <div class="media-btn" id="mRewind">
+        <svg class="mi" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 5V2L8 6l4 4V7c2.76 0 5 2.24 5 5s-2.24 5-5 5-5-2.24-5-5H5c0 3.87 3.13 7 7 7s7-3.13 7-7-3.13-7-7-7z"/>
+          <text x="12" y="14.5" text-anchor="middle" font-size="4.5" font-weight="bold" font-family="sans-serif">10</text>
+        </svg>
+        <span>Back</span>
+      </div>
+      <div class="media-btn media-play" id="mPlayPause">
+        <svg class="mi" viewBox="0 0 34 20" fill="currentColor">
+          <path d="M2 2v16l10-8z"/>
+          <path d="M18 2h5v16h-5zm7 0h5v16h-5z"/>
+        </svg>
+        <span>Play / Pause</span>
+      </div>
+      <div class="media-btn" id="mSkip">
+        <svg class="mi" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 5V2l4 4-4 4V7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5h2c0 3.87-3.13 7-7 7s-7-3.13-7-7 3.13-7 7-7z"/>
+          <text x="12" y="14.5" text-anchor="middle" font-size="4.5" font-weight="bold" font-family="sans-serif">10</text>
+        </svg>
+        <span>Skip</span>
+      </div>
+    </div>
+
+    <!-- Volume -->
+    <div class="media-label">Volume</div>
+    <div class="media-row">
+      <div class="media-btn" id="mVolDown">
+        <svg class="mi" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
+        </svg>
+        <span>Vol Down</span>
+      </div>
+      <div class="media-btn" id="mVolUp">
+        <svg class="mi" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+        <span>Vol Up</span>
+      </div>
+    </div>
+
+    <!-- Fullscreen + Skip Intro -->
+    <div class="media-row">
+      <div class="media-btn" id="mFullscreen">
+        <svg class="mi" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+        <span>Fullscreen</span>
+      </div>
+      <div class="media-btn" id="mSkipIntro">
+        <svg class="mi" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M5.59 7.41L10.18 12l-4.59 4.59L7 18l6-6-6-6zM16 6h2v12h-2z"/>
+        </svg>
+        <span>Skip Intro</span>
+        <span class="media-hint">Netflix &middot; S key</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="deck">
+    <div class="keyrow">
+      <div class="keybtn wide" id="kbToggle">&#8963; Keyboard</div>
+      <div class="keybtn" data-key="esc">Esc</div>
+      <div class="keybtn" data-key="tab">Tab</div>
+      <div class="keybtn" data-key="backspace">&#9003;</div>
+      <div class="keybtn wide" data-key="enter">Enter &#8629;</div>
+    </div>
+    <div class="keyrow">
+      <div class="keybtn" data-key="left">&#8592;</div>
+      <div class="keybtn" data-key="up">&#8593;</div>
+      <div class="keybtn" data-key="down">&#8595;</div>
+      <div class="keybtn" data-key="right">&#8594;</div>
+      <div class="keybtn wide" data-key="space">Space</div>
+    </div>
+    <div class="keyrow">
+      <div class="keybtn" data-hotkey="copy">Copy</div>
+      <div class="keybtn" data-hotkey="paste">Paste</div>
+      <div class="keybtn" data-hotkey="undo">Undo</div>
+      <div class="keybtn" data-hotkey="selectall">Select All</div>
+      <div class="keybtn" data-hotkey="switch">App Switch</div>
+    </div>
+  </div>
+
+  <footer id="footerHint">same Wi-Fi as your laptop</footer>
+</div>
+
+<textarea id="kbInput" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+
+<script>
+  // ---------- settings / persistence ----------
+  const params = new URLSearchParams(window.location.search);
+  const stored = JSON.parse(localStorage.getItem('laptop-remote-settings') || '{}');
+
+  const settings = {
+    token: params.get('token') || stored.token || 'letmein',
+    macMode: stored.macMode || false,
+    sensitivity: stored.sensitivity || 1.4,
+  };
+  function saveSettings(){ localStorage.setItem('laptop-remote-settings', JSON.stringify(settings)); }
+
+  const tokenInput = document.getElementById('tokenInput');
+  const macMode = document.getElementById('macMode');
+  const sensitivityInput = document.getElementById('sensitivity');
+  tokenInput.value = settings.token;
+  macMode.checked = settings.macMode;
+  sensitivityInput.value = settings.sensitivity;
+
+  document.getElementById('gearBtn').onclick = () => document.getElementById('settings').classList.toggle('open');
+  tokenInput.addEventListener('change', () => { settings.token = tokenInput.value; saveSettings(); });
+  macMode.addEventListener('change', () => { settings.macMode = macMode.checked; saveSettings(); });
+  sensitivityInput.addEventListener('input', () => { settings.sensitivity = parseFloat(sensitivityInput.value); saveSettings(); });
+
+  // ---------- socket connection ----------
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  let socket;
+
+  function connect(){
+    if (socket) socket.disconnect();
+    socket = io({ reconnection: true });
+    socket.on('connect', () => {
+      statusDot.className = 'dot off';
+      statusText.textContent = 'PAIRING...';
+      socket.emit('phone_connect', { token: settings.token });
+    });
+    socket.on('connected',         () => { statusDot.className = 'dot on';  statusText.textContent = 'CONNECTED'; });
+    socket.on('peer_disconnected', () => { statusDot.className = 'dot off'; statusText.textContent = 'DISCONNECTED'; });
+    socket.on('disconnect',        () => { statusDot.className = 'dot off'; statusText.textContent = 'DISCONNECTED'; });
+    socket.on('error',         (d) => { statusDot.className = 'dot off'; statusText.textContent = d.msg || 'ERROR'; });
+  }
+  connect();
+  document.getElementById('reconnectBtn').onclick = () => { document.getElementById('settings').classList.remove('open'); connect(); };
+
+  // ---------- touchpad: move + tap-to-click ----------
+  const touchpad = document.getElementById('touchpad');
+  let lastX = 0, lastY = 0, startTime = 0, moved = false, maxTouches = 0;
+
+  touchpad.addEventListener('touchstart', (e) => {
+    maxTouches = e.touches.length;
+    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+    startTime = Date.now(); moved = false;
+    e.preventDefault();
+  }, { passive: false });
+
+  touchpad.addEventListener('touchmove', (e) => {
+    maxTouches = Math.max(maxTouches, e.touches.length);
+    if (e.touches.length === 1) {
+      const x = e.touches[0].clientX, y = e.touches[0].clientY;
+      const dx = (x - lastX) * settings.sensitivity;
+      const dy = (y - lastY) * settings.sensitivity;
+      lastX = x; lastY = y;
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved = true;
+      socket.emit('move', { dx, dy });
+    } else {
+      moved = true; // multi-finger drag = not a tap, but also not cursor move here
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  touchpad.addEventListener('touchend', (e) => {
+    const elapsed = Date.now() - startTime;
+    if (!moved && elapsed < 280) {
+      socket.emit('click', { button: maxTouches >= 2 ? 'right' : 'left' });
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  // ---------- scroll rail: vertical drag = scroll ----------
+  const scrollrail = document.getElementById('scrollrail');
+  let railLastY = null;
+  scrollrail.addEventListener('touchstart', (e) => { railLastY = e.touches[0].clientY; e.preventDefault(); }, { passive: false });
+  scrollrail.addEventListener('touchmove', (e) => {
+    const y = e.touches[0].clientY;
+    const dy = y - railLastY;
+    railLastY = y;
+    socket.emit('scroll', { amount: Math.round(-dy * 0.6) });
+    e.preventDefault();
+  }, { passive: false });
+  scrollrail.addEventListener('touchend', () => { railLastY = null; });
+
+  // ---------- click buttons ----------
+  document.getElementById('leftClickBtn').addEventListener('click', () => socket.emit('click', { button: 'left' }));
+  document.getElementById('rightClickBtn').addEventListener('click', () => socket.emit('click', { button: 'right' }));
+  document.getElementById('doubleClickBtn').addEventListener('click', () => socket.emit('doubleclick', {}));
+
+  // ---------- special key buttons ----------
+  document.querySelectorAll('.keybtn[data-key]').forEach(btn => {
+    btn.addEventListener('click', () => socket.emit('key', { key: btn.dataset.key }));
+  });
+
+  // ---------- hotkey buttons ----------
+  function modKey(){ return settings.macMode ? 'command' : 'ctrl'; }
+  const hotkeyMap = {
+    copy: () => [modKey(), 'c'],
+    paste: () => [modKey(), 'v'],
+    undo: () => [modKey(), 'z'],
+    selectall: () => [modKey(), 'a'],
+    switch: () => settings.macMode ? ['command', 'tab'] : ['alt', 'tab'],
+  };
+  document.querySelectorAll('.keybtn[data-hotkey]').forEach(btn => {
+    btn.addEventListener('click', () => socket.emit('hotkey', { keys: hotkeyMap[btn.dataset.hotkey]() }));
+  });
+
+  // ---------- on-screen keyboard relay ----------
+  const kbInput = document.getElementById('kbInput');
+  let prevValue = '';
+  document.getElementById('kbToggle').addEventListener('click', () => kbInput.focus());
+
+  kbInput.addEventListener('input', () => {
+    const value = kbInput.value;
+    if (value.length > prevValue.length) {
+      socket.emit('type', { text: value.slice(prevValue.length) });
+    } else if (value.length < prevValue.length) {
+      const removed = prevValue.length - value.length;
+      for (let i = 0; i < removed; i++) socket.emit('key', { key: 'backspace' });
+    }
+    prevValue = value;
+    if (value.length > 200) { kbInput.value = ''; prevValue = ''; }
+  });
+
+  kbInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); socket.emit('key', { key: 'enter' }); }
+  });
+
+  // ---------- media mode ----------
+  const surfaceWrap = document.getElementById('surface-wrap');
+  const clickrow    = document.getElementById('clickrow');
+  const deck        = document.getElementById('deck');
+  const mediapanel  = document.getElementById('mediapanel');
+  const tabTouchpad = document.getElementById('tabTouchpad');
+  const tabMedia    = document.getElementById('tabMedia');
+
+  function setMode(mode) {
+    const isMedia = mode === 'media';
+    surfaceWrap.style.display = isMedia ? 'none' : '';
+    clickrow.style.display    = isMedia ? 'none' : '';
+    deck.style.display        = isMedia ? 'none' : '';
+    mediapanel.classList.toggle('active', isMedia);
+    tabTouchpad.classList.toggle('active', !isMedia);
+    tabMedia.classList.toggle('active', isMedia);
+    document.getElementById('app').classList.toggle('media-mode', isMedia);
+  }
+
+  tabTouchpad.addEventListener('click', () => setMode('touchpad'));
+  tabMedia.addEventListener('click', () => setMode('media'));
+
+  // Playback — space / left / right arrow keys
+  document.getElementById('mPlayPause').addEventListener('click', () => socket.emit('key', { key: 'space' }));
+  document.getElementById('mRewind').addEventListener('click',    () => socket.emit('key', { key: 'left' }));
+  document.getElementById('mSkip').addEventListener('click',      () => socket.emit('key', { key: 'right' }));
+
+  // Volume — up / down arrow keys (works in Netflix, YouTube, VLC, etc.)
+  document.getElementById('mVolDown').addEventListener('click', () => socket.emit('key', { key: 'down' }));
+  document.getElementById('mVolUp').addEventListener('click',   () => socket.emit('key', { key: 'up' }));
+
+  // Fullscreen — F11 key
+  document.getElementById('mFullscreen').addEventListener('click', () => socket.emit('key', { key: 'f11' }));
+
+  // Skip Intro (Netflix) — sends 's' key; works with Netflix skip-intro shortcuts
+  document.getElementById('mSkipIntro').addEventListener('click', () => socket.emit('key', { key: 's' }));
+</script>
+</body>
+</html>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Laptop Remote — Mac Setup Guide</title>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1b1e24;
+    --panel-raised: #21252c;
+    --line: #2c313a;
+    --amber: #e8a33d;
+    --teal: #4fb8b0;
+    --text: #e7e6e2;
+    --text-dim: #8d92a0;
+    --danger: #d9665a;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+  }
+  .page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 56px 24px 80px;
+  }
+
+  /* back link */
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+    margin-bottom: 48px;
+  }
+  .back:hover { color: var(--text); }
+
+  /* page header */
+  .page-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .page-sub {
+    font-size: 15px;
+    color: var(--text-dim);
+    margin-bottom: 52px;
+  }
+
+  /* sections */
+  .section { margin-bottom: 44px; }
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 14px;
+  }
+  h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 14px;
+    letter-spacing: -0.01em;
+  }
+  p { color: var(--text-dim); margin-bottom: 10px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* steps */
+  .steps { display: flex; flex-direction: column; gap: 12px; }
+  .step {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--amber);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+  .step-body { flex: 1; }
+  .step-title { font-weight: 600; color: var(--text); margin-bottom: 4px; font-size: 14px; }
+  .step-desc { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+
+  /* code blocks */
+  code {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 2px 7px;
+    color: var(--teal);
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--teal);
+    overflow-x: auto;
+    margin: 12px 0;
+    line-height: 1.7;
+  }
+  pre::-webkit-scrollbar { display: none; }
+
+  /* warning banner */
+  .banner {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    background: #1f1a14;
+    border: 1px solid #4a3a1a;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .banner-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .banner-body { font-size: 13px; color: var(--text-dim); line-height: 1.6; }
+  .banner-body strong { color: var(--amber); font-weight: 600; }
+
+  /* gesture table */
+  .gesture-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .gesture-row {
+    display: flex;
+    background: var(--panel);
+    padding: 13px 18px;
+    gap: 16px;
+    align-items: center;
+  }
+  .gesture-row:first-child { border-radius: 12px 12px 0 0; }
+  .gesture-row:last-child  { border-radius: 0 0 12px 12px; }
+  .gesture-action {
+    flex: 0 0 160px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--amber);
+    letter-spacing: 0.02em;
+  }
+  .gesture-desc {
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* divider */
+  hr {
+    border: none;
+    border-top: 1px solid var(--line);
+    margin: 44px 0;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back" href="/">← Back</a>
+
+  <div class="page-title">Mac Setup Guide</div>
+  <div class="page-sub">Get Laptop Remote running on macOS in under two minutes.</div>
+
+  <!-- SETUP -->
+  <div class="section">
+    <div class="section-label">01 — Getting started</div>
+    <h2>Download &amp; run the client</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Download the client</div>
+          <div class="step-desc">Go to the home page and click <strong style="color:var(--text)">Download for Mac</strong>. No installation required — it's a single file.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Run it</div>
+          <div class="step-desc">Double-click <code>LaptopRemote</code>. A setup page will open automatically in your browser showing the URL to share with your phone.</div>
+          <div class="step-desc" style="margin-top:10px;">
+            <strong style="color:var(--amber)">Gatekeeper warning?</strong> macOS may block the app the first time with "cannot be opened because it is from an unidentified developer." To allow it: <strong style="color:var(--text)">right-click → Open → Open</strong> in the dialog that appears. You only need to do this once.
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Copy the URL and open it on your phone</div>
+          <div class="step-desc">Tap <strong style="color:var(--text)">Copy URL</strong> on the setup page, then open it in your phone's browser. The setup page will update automatically once your phone connects.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- PERMISSIONS -->
+  <div class="section">
+    <div class="section-label">02 — Permissions</div>
+    <h2>Grant Accessibility access</h2>
+
+    <div class="banner">
+      <div class="banner-icon">⚠️</div>
+      <div class="banner-body"><strong>Required on macOS.</strong> Without this, pyautogui cannot move the mouse or send keystrokes — the phone will connect but nothing will happen on screen.</div>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Open System Settings</div>
+          <div class="step-desc">Go to <strong style="color:var(--text)">System Settings → Privacy &amp; Security → Accessibility</strong>.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Add LaptopRemote</div>
+          <div class="step-desc">Click the <strong style="color:var(--text)">+</strong> button and add <code>LaptopRemote</code> from wherever you saved it. Toggle it on.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Restart the client</div>
+          <div class="step-desc">Quit and relaunch <code>LaptopRemote</code> after granting permission. macOS won't apply the change to a running process.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- GESTURES -->
+  <div class="section">
+    <div class="section-label">03 — Controls</div>
+    <h2>Gestures &amp; buttons</h2>
+
+    <div class="gesture-grid">
+      <div class="gesture-row">
+        <div class="gesture-action">1-finger drag</div>
+        <div class="gesture-desc">Move the cursor</div>
+      </div>
+      <div class="gesture-row">
+        <div class="gesture-action">1-finger tap</div>
+        <div class="gesture-desc">Left click</div>
+      </div>
+      <div class="gesture-row">
+        <div class="gesture-action">2-finger tap</div>
+        <div class="gesture-desc">Right click</div>
+      </div>
+      <div class="gesture-row">
+        <div class="gesture-action">Double button</div>
+        <div class="gesture-desc">Double click</div>
+      </div>
+      <div class="gesture-row">
+        <div class="gesture-action">Scroll rail</div>
+        <div class="gesture-desc">Drag up/down to scroll</div>
+      </div>
+      <div class="gesture-row">
+        <div class="gesture-action">⌃ Keyboard button</div>
+        <div class="gesture-desc">Opens your phone's on-screen keyboard to type on the laptop</div>
+      </div>
+    </div>
+  </div>
+
+  <hr />
+
+  <!-- MAC MODIFIERS -->
+  <div class="section">
+    <div class="section-label">04 — Mac tip</div>
+    <h2>Enable Mac modifiers</h2>
+    <p>By default the hotkeys (Copy, Paste, Undo, etc.) use <code>Ctrl</code>. On a Mac you want <code>⌘ Command</code> instead.</p>
+    <p>Tap the <strong style="color:var(--text)">⚙ gear icon</strong> in the top-right of the remote and toggle <strong style="color:var(--text)">Mac modifiers</strong> on. The setting is saved automatically.</p>
+  </div>
+
+  <hr />
+
+  <!-- TROUBLESHOOTING -->
+  <div class="section">
+    <div class="section-label">05 — Troubleshooting</div>
+    <h2>Common issues</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">?</div>
+        <div class="step-body">
+          <div class="step-title">Phone connects but cursor doesn't move</div>
+          <div class="step-desc">Accessibility permission is missing or wasn't applied. Follow section 02 above and restart the server.</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">?</div>
+        <div class="step-body">
+          <div class="step-title">Can't reach the server from the phone</div>
+          <div class="step-desc">Both devices must be on the same Wi-Fi network. Check that your Mac firewall isn't blocking port <code>5000</code> (<strong style="color:var(--text)">System Settings → Network → Firewall</strong>).</div>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">?</div>
+        <div class="step-body">
+          <div class="step-title">BAD TOKEN / OFFLINE shown on phone</div>
+          <div class="step-desc">The token in the URL doesn't match the one the server generated. Copy the URL fresh from the setup page at <code>http://localhost:5000</code>.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

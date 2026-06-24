@@ -1,0 +1,8 @@
+# Laptop client — bundled into the executable
+Flask==3.0.3
+Flask-SocketIO==5.3.6
+python-socketio==5.11.2
+simple-websocket
+pyautogui==0.9.54
+pystray
+pyinstaller

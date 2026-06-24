@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Laptop Remote — Connect your phone</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #14161a;
+    --panel: #1b1e24;
+    --line: #2c313a;
+    --amber: #e8a33d;
+    --teal: #4fb8b0;
+    --teal-dim: #1a3533;
+    --teal-border: #2a5550;
+    --text: #e7e6e2;
+    --text-dim: #8d92a0;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: min(480px, calc(100vw - 40px));
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    transition: border-color 0.3s;
+  }
+  .card.connected { border-color: var(--teal-border); }
+
+  /* status banner */
+  .status-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    transition: background 0.3s, border-color 0.3s, color 0.3s;
+  }
+  .status-banner.connected {
+    background: var(--teal-dim);
+    border-color: var(--teal-border);
+    color: var(--teal);
+  }
+  .status-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .status-banner.connected .status-dot {
+    background: var(--teal);
+    box-shadow: 0 0 6px var(--teal);
+  }
+
+  .heading { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .sub { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
+
+  .label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .url-box {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--teal);
+    white-space: nowrap;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  .url-box::-webkit-scrollbar { display: none; }
+
+  .copy-btn {
+    width: 100%;
+    padding: 15px;
+    background: var(--amber);
+    color: #14161a;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: opacity 0.15s, background 0.2s;
+  }
+  .copy-btn:active { opacity: 0.8; }
+  .copy-btn.copied { background: var(--teal); }
+
+  .help-link {
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+  }
+  .help-link:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div class="status-banner" id="banner">
+    <div class="status-dot" id="dot"></div>
+    <span id="statusText">Waiting for phone to connect...</span>
+  </div>
+
+  <div>
+    <div class="heading">Connect your phone</div>
+    <div class="sub">Make sure both devices are on the same Wi-Fi network.</div>
+  </div>
+
+  <span class="label">Open this URL on your phone</span>
+  <div class="url-box" id="url">{{ phone_url }}</div>
+  <button class="copy-btn" id="copyBtn" onclick="copyUrl()">Copy URL</button>
+  <a class="help-link" href="/help">Setup guide &amp; instructions →</a>
+</div>
+
+<script>
+  const phoneUrl = document.getElementById('url').textContent.trim();
+  const token = new URL(phoneUrl).searchParams.get('token');
+
+  const banner = document.getElementById('banner');
+  const statusText = document.getElementById('statusText');
+  const card = document.getElementById('card');
+
+  function setConnected() {
+    banner.classList.add('connected');
+    card.classList.add('connected');
+    statusText.textContent = 'Phone connected — you\'re ready to go';
+  }
+
+  function setWaiting() {
+    banner.classList.remove('connected');
+    card.classList.remove('connected');
+    statusText.textContent = 'Waiting for phone to connect...';
+  }
+
+  const socket = io({ reconnection: true });
+  socket.on('connect', () => socket.emit('get_status'));
+  socket.on('status',          (d) => d.phone_connected ? setConnected() : setWaiting());
+  socket.on('phone_joined',        setConnected);
+  socket.on('peer_disconnected',   setWaiting);
+
+  function copyUrl() {
+    const btn = document.getElementById('copyBtn');
+    navigator.clipboard.writeText(phoneUrl).then(() => {
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy URL'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+</script>
+</body>
+</html>
