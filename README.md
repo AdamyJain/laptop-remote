@@ -30,6 +30,17 @@ pip install -r requirements_client.txt
 - The server listens on **port 5050** on macOS, because the built-in
   *AirPlay Receiver* (ControlCenter) permanently occupies port 5000. Override
   with `RC_PORT=...` if 5050 is also taken.
+- **Running the prebuilt binary?** It's unsigned, so on first launch macOS
+  blocks it: *"Apple could not verify 'LaptopRemote' is free of malware."*
+  Click **Done** (not "Move to Trash"), then either go to *System Settings →
+  Privacy & Security* and click **Open Anyway**, or clear the quarantine flag
+  from a terminal:
+  ```bash
+  xattr -d com.apple.quarantine ~/Downloads/LaptopRemote
+  ```
+  First launch then takes ~20–30s while the single-file app unpacks — that's
+  normal, not a hang. (Running from source with `python laptop_client.py`
+  avoids both the Gatekeeper prompt and the slow startup.)
 - Turn on **Mac modifiers** in the page's settings (gear icon) so Copy/Paste/
   Undo send ⌘ instead of Ctrl.
 
