@@ -1,2 +1,4 @@
 # Deployed server — landing page + file downloads only
 Flask==3.0.3
+gspread==6.1.2
+google-auth==2.29.0
