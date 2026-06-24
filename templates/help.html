@@ -214,7 +214,14 @@
           <div class="step-title">Run it</div>
           <div class="step-desc">Double-click <code>LaptopRemote</code>. A setup page will open automatically in your browser showing the URL to share with your phone.</div>
           <div class="step-desc" style="margin-top:10px;">
-            <strong style="color:var(--amber)">Gatekeeper warning?</strong> macOS may block the app the first time with "cannot be opened because it is from an unidentified developer." To allow it: <strong style="color:var(--text)">right-click → Open → Open</strong> in the dialog that appears. You only need to do this once.
+            <strong style="color:var(--amber)">Gatekeeper warning?</strong> The app is unsigned, so the first time you run it macOS blocks it with <em>"Apple could not verify &lsquo;LaptopRemote&rsquo; is free of malware"</em>. Click <strong style="color:var(--text)">Done</strong> (not "Move to Trash"), then go to <strong style="color:var(--text)">System Settings → Privacy &amp; Security</strong>, scroll down and click <strong style="color:var(--text)">Open Anyway</strong>. (On older macOS the right-click → Open trick also works.) You only need to do this once.
+          </div>
+          <div class="step-desc" style="margin-top:10px;">
+            Prefer the terminal? Clear the quarantine flag in one line:
+          </div>
+          <pre>xattr -d com.apple.quarantine ~/Downloads/LaptopRemote</pre>
+          <div class="step-desc" style="margin-top:6px;">
+            First launch takes ~20–30s while the single-file app unpacks itself — that's normal, not a hang.
           </div>
         </div>
       </div>
@@ -328,14 +335,14 @@
         <div class="step-num">?</div>
         <div class="step-body">
           <div class="step-title">Can't reach the server from the phone</div>
-          <div class="step-desc">Both devices must be on the same Wi-Fi network. Check that your Mac firewall isn't blocking port <code>5000</code> (<strong style="color:var(--text)">System Settings → Network → Firewall</strong>).</div>
+          <div class="step-desc">Both devices must be on the same Wi-Fi network. Check that your Mac firewall isn't blocking port <code>5050</code> (<strong style="color:var(--text)">System Settings → Network → Firewall</strong>).</div>
         </div>
       </div>
       <div class="step">
         <div class="step-num">?</div>
         <div class="step-body">
           <div class="step-title">BAD TOKEN / OFFLINE shown on phone</div>
-          <div class="step-desc">The token in the URL doesn't match the one the server generated. Copy the URL fresh from the setup page at <code>http://localhost:5000</code>.</div>
+          <div class="step-desc">The token in the URL doesn't match the one the server generated. Copy the URL fresh from the setup page at <code>http://localhost:5050</code>.</div>
         </div>
       </div>
     </div>
