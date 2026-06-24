@@ -443,36 +443,100 @@
   connect();
   document.getElementById('reconnectBtn').onclick = () => { document.getElementById('settings').classList.remove('open'); connect(); };
 
-  // ---------- touchpad: move + tap-to-click ----------
+  // ---------- touchpad: move, tap-to-click, 2-finger scroll/pinch, 3-/4-finger swipe ----------
   const touchpad = document.getElementById('touchpad');
   let lastX = 0, lastY = 0, startTime = 0, moved = false, maxTouches = 0;
+  // two-finger state
+  let lastCx = 0, lastCy = 0, lastDist = 0, gesture = null, zoomAccum = 0;
+  // 3-/4-finger swipe state
+  let swipeStartX = 0, swipeStartY = 0, swipeFired = false;
+  const PINCH_LOCK = 12;   // px change in finger spread before a gesture counts as a pinch
+  const MOVE_LOCK  = 4;    // px centroid travel before a gesture locks to scroll
+  const ZOOM_STEP  = 55;   // px of pinch per zoom keystroke
+  const SWIPE_LOCK = 55;   // px the 3-/4-finger centroid must travel to fire a swipe
+
+  const fingerDist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+  const centroid   = (t) => {
+    let sx = 0, sy = 0;
+    for (let i = 0; i < t.length; i++) { sx += t[i].clientX; sy += t[i].clientY; }
+    return [sx / t.length, sy / t.length];
+  };
 
   touchpad.addEventListener('touchstart', (e) => {
-    maxTouches = e.touches.length;
-    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
-    startTime = Date.now(); moved = false;
+    maxTouches = Math.max(maxTouches, e.touches.length);
+    if (e.touches.length === 1) { startTime = Date.now(); moved = false; maxTouches = 1; }
+    if (e.touches.length >= 3) {
+      const [cx, cy] = centroid(e.touches);
+      swipeStartX = cx; swipeStartY = cy; swipeFired = false;
+    } else if (e.touches.length === 2) {
+      const [cx, cy] = centroid(e.touches);
+      lastCx = cx; lastCy = cy; lastDist = fingerDist(e.touches);
+      gesture = null; zoomAccum = 0;
+    } else {
+      lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
+    }
     e.preventDefault();
   }, { passive: false });
 
   touchpad.addEventListener('touchmove', (e) => {
     maxTouches = Math.max(maxTouches, e.touches.length);
-    if (e.touches.length === 1) {
+
+    if (e.touches.length >= 3) {
+      // three or four fingers -> directional swipe (fires once per gesture)
+      moved = true;
+      if (!swipeFired) {
+        const [cx, cy] = centroid(e.touches);
+        const dx = cx - swipeStartX, dy = cy - swipeStartY;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) > SWIPE_LOCK) {
+          const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left')
+                                                  : (dy > 0 ? 'down' : 'up');
+          socket.emit('swipe', { dir, fingers: Math.min(maxTouches, 4) });
+          swipeFired = true;
+        }
+      }
+    } else if (e.touches.length === 2 && maxTouches < 3) {
+      // two fingers -> scroll (drag) or zoom (pinch)
+      const [cx, cy] = centroid(e.touches);
+      const d = fingerDist(e.touches);
+      const dcx = cx - lastCx, dcy = cy - lastCy, ddist = d - lastDist;
+      lastCx = cx; lastCy = cy; lastDist = d;
+      if (Math.abs(dcx) > 0.5 || Math.abs(dcy) > 0.5 || Math.abs(ddist) > 0.5) moved = true;
+
+      if (!gesture && (Math.abs(ddist) > PINCH_LOCK ||
+                       Math.abs(dcx) > MOVE_LOCK || Math.abs(dcy) > MOVE_LOCK)) {
+        gesture = (Math.abs(ddist) > Math.abs(dcx) && Math.abs(ddist) > Math.abs(dcy))
+          ? 'zoom' : 'scroll';
+      }
+
+      if (gesture === 'zoom') {
+        zoomAccum += ddist;
+        while (Math.abs(zoomAccum) >= ZOOM_STEP) {
+          const dir = zoomAccum > 0 ? 1 : -1;
+          socket.emit('zoom', { delta: dir });
+          zoomAccum -= dir * ZOOM_STEP;
+        }
+      } else if (gesture === 'scroll') {
+        socket.emit('scroll', { x: Math.round(dcx * 0.7), y: Math.round(-dcy * 0.7) });
+      }
+    } else if (e.touches.length === 1 && maxTouches < 2) {
+      // one finger (and never was multi-touch) -> move the cursor
       const x = e.touches[0].clientX, y = e.touches[0].clientY;
       const dx = (x - lastX) * settings.sensitivity;
       const dy = (y - lastY) * settings.sensitivity;
       lastX = x; lastY = y;
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) moved = true;
       socket.emit('move', { dx, dy });
-    } else {
-      moved = true; // multi-finger drag = not a tap, but also not cursor move here
     }
     e.preventDefault();
   }, { passive: false });
 
   touchpad.addEventListener('touchend', (e) => {
-    const elapsed = Date.now() - startTime;
-    if (!moved && elapsed < 280) {
-      socket.emit('click', { button: maxTouches >= 2 ? 'right' : 'left' });
+    if (e.touches.length === 0) {        // all fingers lifted -> end of gesture
+      const elapsed = Date.now() - startTime;
+      if (!moved && elapsed < 280) {
+        socket.emit('click', { button: maxTouches >= 2 ? 'right' : 'left' });
+      }
+      gesture = null; swipeFired = false; maxTouches = 0;
     }
     e.preventDefault();
   }, { passive: false });
