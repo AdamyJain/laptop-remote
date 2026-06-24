@@ -152,6 +152,24 @@ def handle_type(data):
     if text:
         pyautogui.typewrite(text, interval=0)
 
+@socketio.on("phone_paste")
+def handle_phone_paste(data):
+    text = data.get("text", "")
+    if not text:
+        return
+    if sys.platform == "win32":
+        subprocess.run(
+            ["powershell", "-Command", "Set-Clipboard"],
+            input=text.encode("utf-8"), capture_output=True, timeout=5,
+        )
+        pyautogui.hotkey("ctrl", "v")
+    elif sys.platform == "darwin":
+        subprocess.run("pbcopy", input=text.encode("utf-8"),
+                       capture_output=True, timeout=5)
+        pyautogui.hotkey("command", "v")
+    else:
+        pyautogui.typewrite(text, interval=0.01)
+
 @socketio.on("brightness")
 def handle_brightness(data):
     delta = int(data.get("delta", 10))

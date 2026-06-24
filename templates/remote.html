@@ -112,6 +112,62 @@
 
   footer{ text-align:center; padding: 6px 0 10px; font-family: var(--mono); font-size:10px; color: var(--text-dim); letter-spacing:.1em; flex-shrink:0; }
 
+  /* ---- phone-paste overlay ---- */
+  #pasteOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 100;
+    align-items: flex-end;
+  }
+  #pasteOverlay.open { display: flex; }
+  #pasteSheet {
+    width: 100%;
+    background: var(--panel);
+    border-top: 1px solid var(--line);
+    border-radius: 18px 18px 0 0;
+    padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .paste-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  #pasteArea {
+    width: 100%;
+    height: 110px;
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    padding: 10px 12px;
+    resize: none;
+    touch-action: auto;
+  }
+  #pasteArea:focus { outline: none; border-color: var(--amber); }
+  #pasteCancelBtn {
+    background: var(--panel-raised);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    border-radius: 10px;
+    padding: 12px 0;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    text-align: center;
+    width: 100%;
+  }
+
   /* ---- mode tabs ---- */
   #modetabs {
     display: flex;
@@ -325,10 +381,19 @@
       <div class="keybtn" data-hotkey="undo">Undo</div>
       <div class="keybtn" data-hotkey="selectall">Select All</div>
       <div class="keybtn" data-hotkey="switch">App Switch</div>
+      <div class="keybtn wide" id="phonePasteBtn">Phone &#8594; Laptop</div>
     </div>
   </div>
 
   <footer id="footerHint">same Wi-Fi as your laptop</footer>
+</div>
+
+<div id="pasteOverlay">
+  <div id="pasteSheet">
+    <div class="paste-hint">Long-press below, then tap Paste</div>
+    <textarea id="pasteArea" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Your clipboard text will appear here..."></textarea>
+    <button id="pasteCancelBtn">Cancel</button>
+  </div>
 </div>
 
 <textarea id="kbInput" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
@@ -505,6 +570,32 @@
 
   // Skip Intro (Netflix) — sends 's' key; works with Netflix skip-intro shortcuts
   document.getElementById('mSkipIntro').addEventListener('click', () => socket.emit('key', { key: 's' }));
+
+  // ---------- phone → laptop paste ----------
+  const pasteOverlay  = document.getElementById('pasteOverlay');
+  const pasteArea     = document.getElementById('pasteArea');
+  const pasteCancelBtn = document.getElementById('pasteCancelBtn');
+
+  function openPasteOverlay() {
+    pasteArea.value = '';
+    pasteOverlay.classList.add('open');
+    setTimeout(() => pasteArea.focus(), 50);
+  }
+  function closePasteOverlay() {
+    pasteOverlay.classList.remove('open');
+    pasteArea.value = '';
+  }
+
+  document.getElementById('phonePasteBtn').addEventListener('click', openPasteOverlay);
+  pasteCancelBtn.addEventListener('click', closePasteOverlay);
+  pasteOverlay.addEventListener('click', (e) => { if (e.target === pasteOverlay) closePasteOverlay(); });
+
+  pasteArea.addEventListener('paste', (e) => {
+    const text = e.clipboardData.getData('text/plain');
+    if (text) socket.emit('phone_paste', { text });
+    closePasteOverlay();
+    e.preventDefault();
+  });
 </script>
 </body>
 </html>
